@@ -231,6 +231,53 @@ public class Embedder {
         }
     }
 
+    public void runStories(List<Story> stories) {
+
+        processSystemProperties();
+
+        EmbedderControls embedderControls = embedderControls();
+
+        embedderMonitor.usingControls(embedderControls);
+
+
+
+        if (embedderControls.skip()) {
+            List<String> paths = new ArrayList<String>();
+            for(Story story: stories){
+                paths.add(story.getPath());
+            }
+            embedderMonitor.storiesSkipped(paths);
+            return;
+        }
+
+        try {
+
+            // set up run context
+            StoryManager storyManager = createStoryManager();
+            MetaFilter filter = metaFilter();
+            BatchFailures failures = new BatchFailures(embedderControls.verboseFailures());
+
+            // run stories
+            storyManager.runStories(stories, filter, failures);
+
+            // handle any failures
+            handleFailures(failures);
+
+        } finally {
+            // generate reports view regardless of failures in running stories
+            // (if configured to do so)
+            try {
+                if (embedderControls.generateViewAfterStories()) {
+                    generateReportsView();
+                }
+            } finally {
+                // shutdown regardless of failures in reports view
+                shutdownExecutorService();
+            }
+
+        }
+    }
+
     public void generateReportsView() {
         StoryReporterBuilder builder = configuration().storyReporterBuilder();
         File outputDirectory = builder.outputDirectory();
